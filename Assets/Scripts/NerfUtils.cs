@@ -62,15 +62,16 @@ namespace NeRF
             throw new ArgumentException($"Invalid axis value '{axis}'. Expected 'x', 'y', or 'z'.");
         }
         
-        public static float[,] EulerToMatrix(Vector3 eulerAngles)
+        public static float[,] EulerToMatrix(Vector3 eulerAngles, string order = "xyz")
         {
-            float[,] result = new float[3, 3];
+            Dictionary<char, float[,]> rotDict = new Dictionary<char, float[,]>
+            {
+                {'x', AngleToMatrix(eulerAngles.x, 'x')},
+                {'y', AngleToMatrix(eulerAngles.y, 'y')},
+                {'z', AngleToMatrix(eulerAngles.z, 'z')},
+            };
 
-            float[,] rx = AngleToMatrix(eulerAngles.x, 'x');
-            float[,] ry = AngleToMatrix(eulerAngles.x, 'y');
-            float[,] rz = AngleToMatrix(eulerAngles.x, 'z');
-
-            return MatMul(rz, MatMul(ry, rx));
+            return MatMul(rotDict[order[2]], MatMul(rotDict[order[1]], rotDict[order[0]]));
         }
 
         public static void LogMatrix<T>(T[,] mat)

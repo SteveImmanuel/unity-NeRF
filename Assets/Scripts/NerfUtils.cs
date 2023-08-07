@@ -94,5 +94,63 @@ namespace NeRF
             }
             Debug.Log(log.ToString());
         }
+
+        public static void DrawImageGrid(Transform transform, float focalLength, float height, float width, int nRows, int nCols, Color color)
+        {
+            Vector3 leftUpperCorner = transform.position + focalLength * transform.forward + 0.5f * (transform.up * height - transform.right * width);
+
+            Vector3 rowDelta = -transform.up * height / nRows;
+            for (int i = 0; i < nRows + 1; i++)
+            {
+                Debug.DrawLine(leftUpperCorner + i * rowDelta, leftUpperCorner + i * rowDelta + transform.right * width, color);
+            }
+            
+            Vector3 colDelta = transform.right * width / nCols;
+            for (int i = 0; i < nCols + 1; i++)
+            {
+                Debug.DrawLine(leftUpperCorner + i * colDelta, leftUpperCorner + i * colDelta - transform.up * height, color);
+            }
+        }
+        
+        public static (Ray[,], RaycastHit[,]) CalculateRays(Transform transform, float focalLength, float height, float width, int nRows, int nCols, Color color, LayerMask imgPlaneLayerMask)
+        {
+            Ray[,] rays = new Ray[nRows, nCols];
+            RaycastHit[,] rayCastHits = new RaycastHit[nRows, nCols];
+            float[,] rotMat = EulerToMatrix(transform.eulerAngles, "zxy"); // rotation order is confirmed from experiments
+            
+            for (int i = 0; i < rays.GetLength(0); i++)
+            {
+                for (int j = 0; j < rays.GetLength(1); j++)
+                {
+                    float[,] rawDirection = new float[3,1]
+                    {
+                        {(j - (nCols - 1) * .5f) * (width / nCols) / focalLength},
+                        {(-(i - (nRows - 1) * .5f)) * (height / nRows) / focalLength}, 
+                        {1}
+                    };
+                    float[,] transformedDirection = NerfUtils.MatMul(rotMat, rawDirection);
+                    rays[i, j] = new Ray( 
+                        transform.position,
+                        new Vector3(transformedDirection[0, 0], transformedDirection[1, 0], transformedDirection[2, 0])
+                    );
+                    rayCastHits[i, j] = new RaycastHit();
+                    Physics.Raycast(rays[i, j], out rayCastHits[i, j], 10, imgPlaneLayerMask);
+                }
+            }
+
+            return (rays, rayCastHits);
+        }
+        
+        public static void DrawRays(Transform transform, float focalLength, float height, float width, int nRows, int nCols, Color color, LayerMask imgPlaneLayerMask)
+        {
+            (Ray[,], RaycastHit[,]) rayInfo = CalculateRays(transform, focalLength, height, width, nRows, nCols, color, imgPlaneLayerMask);
+            for (int i = 0; i < rayInfo.Item1.GetLength(0); i++)
+            {
+                for (int j = 0; j < rayInfo.Item1.GetLength(1); j++)
+                {
+                    Debug.DrawRay(rayInfo.Item1[i, j].origin, rayInfo.Item2[i, j].point - rayInfo.Item1[i, j].origin, Color.green);
+                }
+            }
+        }
     }
 }

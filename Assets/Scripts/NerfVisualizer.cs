@@ -21,15 +21,16 @@ namespace NeRF
         [Header("Visualizations Configurations")]
         public bool showGrid;
         public bool showRays;
-        [Range(0f, 1f)]
-        public float rayDensity;
-        [Range(0f, 1f)]
         public float rayIterator;
+        public RayType rayType;
+        [Range(1, 100)]
         public int maxRowGrid;
+        public LayerMask objLayerMask;
+        public Transform directionalLight;
+        public Color rayColor;
+        public Color imageGridColor;
 
         private Camera cam;
-        private Ray[,] rays;
-        private RaycastHit[,] rayCastHits;
         
         private void Awake()
         {
@@ -43,12 +44,31 @@ namespace NeRF
 
             if (showGrid)
             {
-                NerfUtils.DrawImageGrid(transform, cam.nearClipPlane, dim.Item1, dim.Item2, rayDensity, maxRowGrid, Color.yellow);
+                NerfUtils.DrawImageGrid(transform, cam.nearClipPlane, dim.Item1, dim.Item2, maxRowGrid, imageGridColor);
             }
+
+            Ray[,] rays = NerfUtils.CalculateRays(transform, cam.nearClipPlane, dim.Item1, dim.Item2, maxRowGrid);
             if (showRays)
             {
-                NerfUtils.DrawRays(transform, cam.nearClipPlane, dim.Item1, dim.Item2, rayDensity, maxRowGrid, Color.green, rayIterator);
+                if (rayType == RayType.Image)
+                {
+                    NerfUtils.DrawRaysImagePlane(transform, cam.nearClipPlane, rays, rayColor, rayIterator);
+                }
+                else
+                {
+                    NerfUtils.DrawRaysScene(rays, rayColor, rayIterator, objLayerMask, cam.farClipPlane);
+                }
             }
+
+            Vector3 lightDir = GetLightDirection();
+            Color[,] colors = NerfUtils.GetRenderedColor(rays, lightDir, Color.black, rayIterator, objLayerMask, cam.farClipPlane);
+            NerfUtils.LogMatrix(colors);
+        }
+
+        private Vector3 GetLightDirection()
+        {
+            float[,] rotMat = NerfUtils.EulerToMatrix(directionalLight.eulerAngles, "zxy");
+            return NerfUtils.CalculateDirection(rotMat, new Vector3(0, 0, 1));
         }
 
         private void ApplyCameraConfig()

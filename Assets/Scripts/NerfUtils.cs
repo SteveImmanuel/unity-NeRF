@@ -7,6 +7,13 @@ using UnityEngine.Assertions;
 
 namespace NeRF
 {
+    public enum RayType
+    {
+        Image,
+        Scene
+    }
+    
+    
     public static class NerfUtils
     {
         public static float[,] MatMul(float[,] mat1, float[,] mat2)
@@ -95,10 +102,10 @@ namespace NeRF
             Debug.Log(log.ToString());
         }
 
-        public static void DrawImageGrid(Transform transform, float distance, float height, float width, float density, int nMax, Color color)
+        public static void DrawImageGrid(Transform transform, float distance, float height, float width, int nRowMax, Color color)
         {
             Vector3 leftUpperCorner = transform.position + distance * transform.forward + 0.5f * (transform.up * height - transform.right * width);
-            int nRows = (int)(density * nMax);
+            int nRows = nRowMax;
             float pixelDim = height / nRows;
             Vector3 rowDelta = -transform.up * pixelDim;
             for (int i = 0; i < nRows + 1; i++)
@@ -115,9 +122,9 @@ namespace NeRF
             }
         }
         
-        public static Ray[,] CalculateRays(Transform transform, float distance, float height, float width, float density, int nMax)
+        public static Ray[,] CalculateRays(Transform transform, float distance, float height, float width, int nRowMax)
         {
-            int nRows = (int)(density * nMax);
+            int nRows = nRowMax;
             float pixelDim = height / nRows;
             int nCols = (int)(width / pixelDim);
             
@@ -128,16 +135,15 @@ namespace NeRF
             {
                 for (int j = 0; j < rays.GetLength(1); j++)
                 {
-                    float[,] rawDirection = new float[3,1]
-                    {
-                        {(j - (nCols - 1) * .5f) * (width / nCols) / distance},
-                        {(-(i - (nRows - 1) * .5f)) * (height / nRows) / distance}, 
-                        {1}
-                    };
-                    float[,] transformedDirection = MatMul(rotMat, rawDirection);
+                    Vector3 rawDirection = new Vector3(
+                        (j - (nCols - 1) * .5f) * (width / nCols) / distance,
+                        (-(i - (nRows - 1) * .5f)) * (height / nRows) / distance, 
+                        1
+                    );
+                    
                     rays[i, j] = new Ray( 
                         transform.position,
-                        new Vector3(transformedDirection[0, 0], transformedDirection[1, 0], transformedDirection[2, 0])
+                        CalculateDirection(rotMat, rawDirection)
                     );
                 }
             }
@@ -150,15 +156,12 @@ namespace NeRF
             return Vector3.Dot(planeNormal, (planeOrigin - lineOrigin)) / Vector3.Dot(planeNormal, lineDirection);
         }
         
-        public static void DrawRays(Transform transform, float distance, float height, float width, float density, int nMax, Color color, float rayIterator)
+        public static void DrawRaysImagePlane(Transform transform, float distance, Ray[,] rays, Color color, float rayIterator)
         {
-            Ray[,] rays = CalculateRays(transform, distance, height, width, density, nMax);
             int totalRays = rays.GetLength(0) * rays.GetLength(1);
 
             Vector3 planeNormal = -transform.forward;
             Vector3 planeOrigin = transform.position + transform.forward * distance;
-            Debug.Log(planeNormal);
-            Debug.Log(planeOrigin);
             
             for (int i = 0; i < rays.GetLength(0); i++)
             {
@@ -174,6 +177,61 @@ namespace NeRF
                     Debug.DrawRay(rays[i, j].origin, t * rays[i, j].direction, color);
                 }
             }
+        }
+        
+        public static void DrawRaysScene(Ray[,] rays, Color color, float rayIterator, LayerMask objLayerMask, float maxDistance=1000f)
+        {
+            int totalRays = rays.GetLength(0) * rays.GetLength(1);
+
+            for (int i = 0; i < rays.GetLength(0); i++)
+            {
+                for (int j = 0; j < rays.GetLength(1); j++)
+                {
+                    RaycastHit raycastHit = new RaycastHit();
+                    if (Physics.Raycast(rays[i, j].origin, rays[i, j].direction, out raycastHit, maxDistance, objLayerMask))
+                    {
+                        Debug.DrawRay(rays[i, j].origin, raycastHit.point - rays[i, j].origin, color);
+                    }
+                    else
+                    {
+                        Debug.DrawRay(rays[i, j].origin, maxDistance * rays[i, j].direction, color);
+                    }
+                    
+                }
+            }
+        }
+        
+        public static Color[,] GetRenderedColor(Ray[,] rays, Vector3 lightDir, Color nullColor, float rayIterator, LayerMask objLayerMask, float maxDistance=1000f)
+        {
+            Color[,] colors = new Color[rays.GetLength(0), rays.GetLength(1)];
+            int totalRays = rays.GetLength(0) * rays.GetLength(1);
+
+            for (int i = 0; i < rays.GetLength(0); i++)
+            {
+                for (int j = 0; j < rays.GetLength(1); j++)
+                {
+                    RaycastHit raycastHit = new RaycastHit();
+                    if (Physics.Raycast(rays[i, j].origin, rays[i, j].direction, out raycastHit, maxDistance, objLayerMask))
+                    {
+                        Color rawColor = raycastHit.transform.gameObject.GetComponent<Renderer>().material.color;
+                        Debug.Log(i + " " + j + " " + Vector3.Dot(-lightDir, raycastHit.normal));
+                        colors[i, j] = Mathf.Clamp(Vector3.Dot(-lightDir, raycastHit.normal), 0, 1) * rawColor;
+                    }
+                    else
+                    {
+                        colors[i, j] = nullColor;
+                    }
+                    
+                }
+            }
+
+            return colors;
+        }
+
+        public static Vector3 CalculateDirection(float[,] rotMat, Vector3 rawDirection)
+        {
+            float[,] transformedDirection = MatMul(rotMat, new float[,] { {rawDirection.x}, {rawDirection.y}, {rawDirection.z} });
+            return new Vector3(transformedDirection[0, 0], transformedDirection[1, 0], transformedDirection[2, 0]);
         }
     }
 }

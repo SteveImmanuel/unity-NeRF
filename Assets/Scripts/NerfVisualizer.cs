@@ -40,7 +40,15 @@ namespace NeRF
         {
             ApplyCameraConfig();
             (float, float) dim = CalculateImageDimension();
-            NerfUtils.DrawImageGrid(transform, cam.nearClipPlane, dim.Item1, dim.Item2, rayDensity, maxRowGrid, Color.yellow);
+
+            if (showGrid)
+            {
+                NerfUtils.DrawImageGrid(transform, cam.nearClipPlane, dim.Item1, dim.Item2, rayDensity, maxRowGrid, Color.yellow);
+            }
+            if (showRays)
+            {
+                NerfUtils.DrawRays(transform, cam.nearClipPlane, dim.Item1, dim.Item2, rayDensity, maxRowGrid, Color.green, rayIterator);
+            }
         }
 
         private void ApplyCameraConfig()

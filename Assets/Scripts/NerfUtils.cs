@@ -98,42 +98,30 @@ namespace NeRF
         public static void DrawImageGrid(Transform transform, float distance, float height, float width, float density, int nMax, Color color)
         {
             Vector3 leftUpperCorner = transform.position + distance * transform.forward + 0.5f * (transform.up * height - transform.right * width);
-            int nRow = (int)(density * nMax);
-            float pixelDim = height / nRow;
+            int nRows = (int)(density * nMax);
+            float pixelDim = height / nRows;
             Vector3 rowDelta = -transform.up * pixelDim;
-            for (int i = 0; i < nRow + 1; i++)
+            for (int i = 0; i < nRows + 1; i++)
             {
                     Debug.DrawLine(leftUpperCorner + i * rowDelta, leftUpperCorner + i * rowDelta + transform.right * width, color);
             }
-            Debug.Log(rowDelta);
-            Debug.Log(nRow);
-            Debug.Log(density * nMax);
-            Debug.Log((int) (density * nMax));
 
-            int nCol = (int)(width / pixelDim);
+            int nCols = (int)(width / pixelDim);
+            pixelDim = width / nCols;
             Vector3 colDelta = transform.right * pixelDim;
-            for (int i = 0; i < nCol + 1; i++)
+            for (int i = 0; i < nCols + 1; i++)
             {
                 Debug.DrawLine(leftUpperCorner + i * colDelta, leftUpperCorner + i * colDelta - transform.up * height, color);
             }
         }
         
-        public static void DrawImageGrid2(Transform transform, float distance, float height, float width, Color color)
+        public static Ray[,] CalculateRays(Transform transform, float distance, float height, float width, float density, int nMax)
         {
-            Vector3 leftUpperCorner = transform.position + distance * transform.forward + 0.5f * (transform.up * height - transform.right * width);
-            Vector3 leftBottomCorner = transform.position + distance * transform.forward + 0.5f * (-transform.up * height - transform.right * width);
-            Vector3 rightUpperCorner = transform.position + distance * transform.forward + 0.5f * (transform.up * height + transform.right * width);
-            Vector3 rightBottomCorner = transform.position + distance * transform.forward + 0.5f * (-transform.up * height + transform.right * width);
-            Debug.DrawLine(leftUpperCorner , rightUpperCorner, color);
-            Debug.DrawLine(rightUpperCorner , rightBottomCorner, color);
-            Debug.DrawLine(rightBottomCorner , leftBottomCorner, color);
-            Debug.DrawLine(leftBottomCorner, leftUpperCorner, color);
-        }
-        
-        public static (Ray[,], RaycastHit[,]) CalculateRays(Transform transform, float focalLength, float height, float width, int nRows, int nCols, Color color, LayerMask imgPlaneLayerMask)
-        {
+            int nRows = (int)(density * nMax);
+            float pixelDim = height / nRows;
+            int nCols = (int)(width / pixelDim);
+            
             Ray[,] rays = new Ray[nRows, nCols];
-            RaycastHit[,] rayCastHits = new RaycastHit[nRows, nCols];
             float[,] rotMat = EulerToMatrix(transform.eulerAngles, "zxy"); // rotation order is confirmed from experiments
             
             for (int i = 0; i < rays.GetLength(0); i++)
@@ -142,36 +130,48 @@ namespace NeRF
                 {
                     float[,] rawDirection = new float[3,1]
                     {
-                        {(j - (nCols - 1) * .5f) * (width / nCols) / focalLength},
-                        {(-(i - (nRows - 1) * .5f)) * (height / nRows) / focalLength}, 
+                        {(j - (nCols - 1) * .5f) * (width / nCols) / distance},
+                        {(-(i - (nRows - 1) * .5f)) * (height / nRows) / distance}, 
                         {1}
                     };
-                    float[,] transformedDirection = NerfUtils.MatMul(rotMat, rawDirection);
+                    float[,] transformedDirection = MatMul(rotMat, rawDirection);
                     rays[i, j] = new Ray( 
                         transform.position,
                         new Vector3(transformedDirection[0, 0], transformedDirection[1, 0], transformedDirection[2, 0])
                     );
-                    rayCastHits[i, j] = new RaycastHit();
-                    Physics.Raycast(rays[i, j], out rayCastHits[i, j], 10, imgPlaneLayerMask);
                 }
             }
 
-            return (rays, rayCastHits);
+            return rays;
+        }
+
+        public static float IntersectLinePlane(Vector3 lineOrigin, Vector3 lineDirection, Vector3 planeOrigin, Vector3 planeNormal)
+        {
+            return Vector3.Dot(planeNormal, (planeOrigin - lineOrigin)) / Vector3.Dot(planeNormal, lineDirection);
         }
         
-        public static void DrawRays(Transform transform, float focalLength, float height, float width, int nRows, int nCols, Color color, LayerMask imgPlaneLayerMask, float rayIterator)
+        public static void DrawRays(Transform transform, float distance, float height, float width, float density, int nMax, Color color, float rayIterator)
         {
-            (Ray[,], RaycastHit[,]) rayInfo = CalculateRays(transform, focalLength, height, width, nRows, nCols, color, imgPlaneLayerMask);
-            int totalRays = rayInfo.Item1.GetLength(0) * rayInfo.Item1.GetLength(1);
-            for (int i = 0; i < rayInfo.Item1.GetLength(0); i++)
+            Ray[,] rays = CalculateRays(transform, distance, height, width, density, nMax);
+            int totalRays = rays.GetLength(0) * rays.GetLength(1);
+
+            Vector3 planeNormal = -transform.forward;
+            Vector3 planeOrigin = transform.position + transform.forward * distance;
+            Debug.Log(planeNormal);
+            Debug.Log(planeOrigin);
+            
+            for (int i = 0; i < rays.GetLength(0); i++)
             {
-                for (int j = 0; j < rayInfo.Item1.GetLength(1); j++)
+                for (int j = 0; j < rays.GetLength(1); j++)
                 {
-                    if (((float) (i + 1) * (j + 1) / totalRays) > rayIterator)
-                    {
-                        break;
-                    }
-                    Debug.DrawRay(rayInfo.Item1[i, j].origin, rayInfo.Item2[i, j].point - rayInfo.Item1[i, j].origin, Color.green);
+                    
+                    // if (((float) (i + 1) * (j + 1) / totalRays) > rayIterator)
+                    // {
+                    //     break;
+                    // }
+                    // Debug.DrawRay(rays[i, j].origin, rayInfo.Item2[i, j].point - rayInfo.Item1[i, j].origin, Color.green);
+                    float t = IntersectLinePlane(rays[i, j].origin, rays[i, j].direction, planeOrigin, planeNormal);
+                    Debug.DrawRay(rays[i, j].origin, t * rays[i, j].direction, color);
                 }
             }
         }

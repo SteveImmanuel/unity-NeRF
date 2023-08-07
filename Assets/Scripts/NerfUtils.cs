@@ -95,21 +95,39 @@ namespace NeRF
             Debug.Log(log.ToString());
         }
 
-        public static void DrawImageGrid(Transform transform, float focalLength, float height, float width, int nRows, int nCols, Color color)
+        public static void DrawImageGrid(Transform transform, float distance, float height, float width, float density, int nMax, Color color)
         {
-            Vector3 leftUpperCorner = transform.position + focalLength * transform.forward + 0.5f * (transform.up * height - transform.right * width);
-
-            Vector3 rowDelta = -transform.up * height / nRows;
-            for (int i = 0; i < nRows + 1; i++)
+            Vector3 leftUpperCorner = transform.position + distance * transform.forward + 0.5f * (transform.up * height - transform.right * width);
+            int nRow = (int)(density * nMax);
+            float pixelDim = height / nRow;
+            Vector3 rowDelta = -transform.up * pixelDim;
+            for (int i = 0; i < nRow + 1; i++)
             {
-                Debug.DrawLine(leftUpperCorner + i * rowDelta, leftUpperCorner + i * rowDelta + transform.right * width, color);
+                    Debug.DrawLine(leftUpperCorner + i * rowDelta, leftUpperCorner + i * rowDelta + transform.right * width, color);
             }
-            
-            Vector3 colDelta = transform.right * width / nCols;
-            for (int i = 0; i < nCols + 1; i++)
+            Debug.Log(rowDelta);
+            Debug.Log(nRow);
+            Debug.Log(density * nMax);
+            Debug.Log((int) (density * nMax));
+
+            int nCol = (int)(width / pixelDim);
+            Vector3 colDelta = transform.right * pixelDim;
+            for (int i = 0; i < nCol + 1; i++)
             {
                 Debug.DrawLine(leftUpperCorner + i * colDelta, leftUpperCorner + i * colDelta - transform.up * height, color);
             }
+        }
+        
+        public static void DrawImageGrid2(Transform transform, float distance, float height, float width, Color color)
+        {
+            Vector3 leftUpperCorner = transform.position + distance * transform.forward + 0.5f * (transform.up * height - transform.right * width);
+            Vector3 leftBottomCorner = transform.position + distance * transform.forward + 0.5f * (-transform.up * height - transform.right * width);
+            Vector3 rightUpperCorner = transform.position + distance * transform.forward + 0.5f * (transform.up * height + transform.right * width);
+            Vector3 rightBottomCorner = transform.position + distance * transform.forward + 0.5f * (-transform.up * height + transform.right * width);
+            Debug.DrawLine(leftUpperCorner , rightUpperCorner, color);
+            Debug.DrawLine(rightUpperCorner , rightBottomCorner, color);
+            Debug.DrawLine(rightBottomCorner , leftBottomCorner, color);
+            Debug.DrawLine(leftBottomCorner, leftUpperCorner, color);
         }
         
         public static (Ray[,], RaycastHit[,]) CalculateRays(Transform transform, float focalLength, float height, float width, int nRows, int nCols, Color color, LayerMask imgPlaneLayerMask)
@@ -141,13 +159,18 @@ namespace NeRF
             return (rays, rayCastHits);
         }
         
-        public static void DrawRays(Transform transform, float focalLength, float height, float width, int nRows, int nCols, Color color, LayerMask imgPlaneLayerMask)
+        public static void DrawRays(Transform transform, float focalLength, float height, float width, int nRows, int nCols, Color color, LayerMask imgPlaneLayerMask, float rayIterator)
         {
             (Ray[,], RaycastHit[,]) rayInfo = CalculateRays(transform, focalLength, height, width, nRows, nCols, color, imgPlaneLayerMask);
+            int totalRays = rayInfo.Item1.GetLength(0) * rayInfo.Item1.GetLength(1);
             for (int i = 0; i < rayInfo.Item1.GetLength(0); i++)
             {
                 for (int j = 0; j < rayInfo.Item1.GetLength(1); j++)
                 {
+                    if (((float) (i + 1) * (j + 1) / totalRays) > rayIterator)
+                    {
+                        break;
+                    }
                     Debug.DrawRay(rayInfo.Item1[i, j].origin, rayInfo.Item2[i, j].point - rayInfo.Item1[i, j].origin, Color.green);
                 }
             }

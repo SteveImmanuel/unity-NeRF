@@ -6,19 +6,11 @@ namespace NeRF
     [ExecuteInEditMode]
     public class NerfVisualizer : MonoBehaviour
     {
-        public GlobalDataScriptableObject globalData;
-        public Boolean useGlobalData;
-
-        // [Header("Visualization Properties")] public float rayLength;
-        
-        [Header("Camera Properties")]
+        [Header("Camera Configurations")] 
         public float focalLength;
-        
-        [Header("Image Plane Properties")]
-        public float width ;
-        public float height;
-        public int nRows;
-        public int nCols;
+        public float sensorX;
+        public float sensorY;
+        public float nearClippingDistance;
         
         [Header("Transformation Matrix")]
         public Vector3 rotRow1;
@@ -26,43 +18,43 @@ namespace NeRF
         public Vector3 rotRow3;
         public Vector3 position;
 
-        [Header("Ray Configurations")] 
-        public LayerMask imgPlaneLayerMask;
-        public LayerMask sceneLayerMask;
-        
+        [Header("Visualizations Configurations")]
+        public bool showGrid;
+        public bool showRays;
+        [Range(0f, 1f)]
+        public float rayDensity;
+        [Range(0f, 1f)]
+        public float rayIterator;
+        public int maxRowGrid;
+
         private Camera cam;
         private Ray[,] rays;
         private RaycastHit[,] rayCastHits;
-        private GameObject imgPlane;
         
         private void Awake()
         {
-            useGlobalData = false;
             cam = gameObject.GetComponent<Camera>();
-        }
-
-        private void Start()
-        {
-            imgPlane = transform.GetChild(0).gameObject;
         }
 
         private void Update()
         {
-            UpdateImgPlane();
-            NerfUtils.DrawRays(transform, focalLength, height, width, nRows, nCols, Color.white, imgPlaneLayerMask);
-            NerfUtils.DrawImageGrid(transform, focalLength, height, width, nRows, nCols, Color.white);
+            ApplyCameraConfig();
+            (float, float) dim = CalculateImageDimension();
+            NerfUtils.DrawImageGrid(transform, cam.nearClipPlane, dim.Item1, dim.Item2, rayDensity, maxRowGrid, Color.yellow);
         }
-        
-        private void UpdateImgPlane()
-        {
-            imgPlane.transform.localPosition = new Vector3(0, 0, focalLength - (float) 1e-4);
-        }
-        
 
-        private float GetFocalLength()
+        private void ApplyCameraConfig()
         {
-            // Debug.Log(cam.sensorSize);
-            return Camera.FieldOfViewToFocalLength(cam.fieldOfView, cam.sensorSize[0]);
+            cam.nearClipPlane = nearClippingDistance;
+            cam.focalLength = focalLength;
+            cam.sensorSize = new Vector2(sensorX, sensorY);
+        }
+        
+        private (float, float) CalculateImageDimension()
+        {
+            float height = this.cam.nearClipPlane * this.cam.sensorSize[1] / this.cam.focalLength;
+            float width = cam.nearClipPlane * cam.sensorSize[0] / cam.focalLength;
+            return (height, width);
         }
     }
 }

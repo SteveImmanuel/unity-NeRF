@@ -21,8 +21,7 @@ namespace NeRF
         [Header("Visualizations Configurations")]
         public bool showGrid;
         public bool showRays;
-        public float rayIterator;
-        public RayType rayType;
+        [SerializeField] public RayConfig rayConfig;
         [Range(1, 256)]
         public int maxRowGrid;
         public LayerMask objLayerMask;
@@ -49,14 +48,7 @@ namespace NeRF
             if (showRays)
             {
                 Ray[,] rays = NerfUtils.CalculateRays(transform, cam.nearClipPlane, dim.Item1, dim.Item2, maxRowGrid);
-                if (rayType == RayType.Image)
-                {
-                    NerfUtils.DrawRaysImagePlane(transform, cam.nearClipPlane, rays, rayColor, rayIterator);
-                }
-                else
-                {
-                    NerfUtils.DrawRaysScene(rays, rayColor, rayIterator, objLayerMask, cam.farClipPlane);
-                }
+                NerfUtils.DrawRays(transform, cam.nearClipPlane, rays, rayColor, rayConfig, objLayerMask, cam.farClipPlane);
             }
         }
 

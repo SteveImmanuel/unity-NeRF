@@ -9,8 +9,7 @@ namespace NeRF
     public class NerfRenderer : MonoBehaviour
     {
         public Transform directionalLight;
-        
-        
+        public Color backgroundColor;
         private NerfVisualizer nerf;
 
         private void Awake()
@@ -22,6 +21,7 @@ namespace NeRF
         {            
             Color[,] colors = GetPixelColors();
             Texture2D texture = new Texture2D(colors.GetLength(1), colors.GetLength(0), TextureFormat.ARGB32, false);
+            texture.filterMode = FilterMode.Point;
             for (int i = 0; i < colors.GetLength(1); i++)
             {
                 for (int j = 0; j < colors.GetLength(0); j++)
@@ -39,7 +39,7 @@ namespace NeRF
         {
             (float, float) dim = NerfUtils.CalculateImageDimension(nerf.cam.focalLength, nerf.cam.nearClipPlane, nerf.cam.sensorSize);
             Ray[,] rays = NerfUtils.CalculateRays(transform, nerf.cam.nearClipPlane, dim.Item1, dim.Item2, nerf.maxRowGrid);
-            Color[,] colors = NerfUtils.GetRenderedColor(rays, GetLightDirection(), Color.black, nerf.rayIterator, nerf.objLayerMask, nerf.cam.farClipPlane);
+            Color[,] colors = NerfUtils.GetRenderedColor(rays, GetLightDirection(), backgroundColor, nerf.rayConfig, nerf.objLayerMask, nerf.cam.farClipPlane);
             
             return colors;
         }

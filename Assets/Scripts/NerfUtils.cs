@@ -7,10 +7,26 @@ using UnityEngine.Assertions;
 
 namespace NeRF
 {
+    
+    [System.Serializable]
+    public struct RayConfig
+    {
+        public RayType type;
+        public RayIteratoryType iteratorType;
+        [Range(0f, 1f)]
+        public float rayIterator;
+    }
+    
     public enum RayType
     {
         Image,
         Scene
+    }
+
+    public enum RayIteratoryType
+    {
+        Single,
+        Accumulate
     }
     
     
@@ -168,15 +184,14 @@ namespace NeRF
             return rays;
         }
 
-        public static float IntersectLinePlane(Vector3 lineOrigin, Vector3 lineDirection, Vector3 planeOrigin, Vector3 planeNormal)
+        private static float IntersectLinePlane(Vector3 lineOrigin, Vector3 lineDirection, Vector3 planeOrigin, Vector3 planeNormal)
         {
             return Vector3.Dot(planeNormal, (planeOrigin - lineOrigin)) / Vector3.Dot(planeNormal, lineDirection);
         }
         
-        public static void DrawRaysImagePlane(Transform transform, float distance, Ray[,] rays, Color color, float rayIterator)
+        public static void DrawRays(Transform transform, float distance, Ray[,] rays, Color color, RayConfig rayConfig, LayerMask objLayerMask, float maxDistance=1000f)
         {
-            int totalRays = rays.GetLength(0) * rays.GetLength(1);
-
+            int lastRayId = Mathf.FloorToInt(rays.GetLength(0) * rays.GetLength(1) * rayConfig.rayIterator);
             Vector3 planeNormal = -transform.forward;
             Vector3 planeOrigin = transform.position + transform.forward * distance;
             
@@ -184,49 +199,68 @@ namespace NeRF
             {
                 for (int j = 0; j < rays.GetLength(1); j++)
                 {
-                    
-                    // if (((float) (i + 1) * (j + 1) / totalRays) > rayIterator)
-                    // {
-                    //     break;
-                    // }
-                    // Debug.DrawRay(rays[i, j].origin, rayInfo.Item2[i, j].point - rayInfo.Item1[i, j].origin, Color.green);
-                    float t = IntersectLinePlane(rays[i, j].origin, rays[i, j].direction, planeOrigin, planeNormal);
-                    Debug.DrawRay(rays[i, j].origin, t * rays[i, j].direction, color);
-                }
-            }
-        }
-        
-        public static void DrawRaysScene(Ray[,] rays, Color color, float rayIterator, LayerMask objLayerMask, float maxDistance=1000f)
-        {
-            int totalRays = rays.GetLength(0) * rays.GetLength(1);
-
-            for (int i = 0; i < rays.GetLength(0); i++)
-            {
-                for (int j = 0; j < rays.GetLength(1); j++)
-                {
-                    RaycastHit raycastHit = new RaycastHit();
-                    if (Physics.Raycast(rays[i, j].origin, rays[i, j].direction, out raycastHit, maxDistance, objLayerMask))
+                    if (rayConfig.iteratorType == RayIteratoryType.Single)
                     {
-                        Debug.DrawRay(rays[i, j].origin, raycastHit.point - rays[i, j].origin, color);
+                        if (i * rays.GetLength(0) + j != lastRayId - 1)
+                        {
+                            continue;
+                        }
                     }
                     else
                     {
-                        Debug.DrawRay(rays[i, j].origin, maxDistance * rays[i, j].direction, color);
+                        if (i * rays.GetLength(0) + j >= lastRayId)
+                        {
+                            continue;
+                        }
                     }
-                    
+
+                    if (rayConfig.type == RayType.Image)
+                    {
+                        float t = IntersectLinePlane(rays[i, j].origin, rays[i, j].direction, planeOrigin, planeNormal);
+                        Debug.DrawRay(rays[i, j].origin, t * rays[i, j].direction, color);
+                    }
+                    else
+                    {
+                        RaycastHit raycastHit = new RaycastHit();
+                        if (Physics.Raycast(rays[i, j].origin, rays[i, j].direction, out raycastHit, maxDistance, objLayerMask))
+                        {
+                            Debug.DrawRay(rays[i, j].origin, raycastHit.point - rays[i, j].origin, color);
+                        }
+                        else
+                        {
+                            Debug.DrawRay(rays[i, j].origin, maxDistance * rays[i, j].direction, color);
+                        }
+                    }
                 }
             }
         }
         
-        public static Color[,] GetRenderedColor(Ray[,] rays, Vector3 lightDir, Color nullColor, float rayIterator, LayerMask objLayerMask, float maxDistance=1000f)
+        public static Color[,] GetRenderedColor(Ray[,] rays, Vector3 lightDir, Color nullColor, RayConfig rayConfig, LayerMask objLayerMask, float maxDistance=1000f)
         {
             Color[,] colors = new Color[rays.GetLength(0), rays.GetLength(1)];
-            int totalRays = rays.GetLength(0) * rays.GetLength(1);
+            int lastRayId = Mathf.FloorToInt(rays.GetLength(0) * rays.GetLength(1) * rayConfig.rayIterator);
 
             for (int i = 0; i < rays.GetLength(0); i++)
             {
                 for (int j = 0; j < rays.GetLength(1); j++)
                 {
+                    if (rayConfig.iteratorType == RayIteratoryType.Single)
+                    {
+                        if (i * rays.GetLength(0) + j != lastRayId - 1)
+                        {
+                            colors[i, j] = nullColor;
+                            continue;
+                        }
+                    }
+                    else
+                    {
+                        if (i * rays.GetLength(0) + j >= lastRayId)
+                        {
+                            colors[i, j] = nullColor;
+                            continue;
+                        }
+                    }
+                    
                     RaycastHit raycastHit = new RaycastHit();
                     if (Physics.Raycast(rays[i, j].origin, rays[i, j].direction, out raycastHit, maxDistance, objLayerMask))
                     {

@@ -6,6 +6,7 @@ using UnityEngine;
 namespace NeRF
 {
     [RequireComponent(typeof(NerfVisualizer))]
+    [ExecuteInEditMode]
     public class NerfRenderer : MonoBehaviour
     {
         public Transform directionalLight;

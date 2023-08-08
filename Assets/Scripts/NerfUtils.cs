@@ -101,6 +101,23 @@ namespace NeRF
             }
             Debug.Log(log.ToString());
         }
+        
+        public static (float, float) CalculateImageDimension(float focalLength, float nearClipPlane, Vector2 sensorSize)
+        {
+            float height = nearClipPlane * sensorSize[1] / focalLength;
+            float width = nearClipPlane * sensorSize[0] / focalLength;
+            return (height, width);
+        }
+
+        public static (int, int) CalculatePixelResolution(float focalLength, float nearClipPlane, Vector2 sensorSize, int nRowMax)
+        {
+            (float, float) imageDim = CalculateImageDimension(focalLength, nearClipPlane, sensorSize);
+            int nRows = nRowMax;
+            float pixelDim = imageDim.Item1 / nRows;
+            int nCols = (int)(imageDim.Item2 / pixelDim);
+
+            return (nRows, nCols);
+        }
 
         public static void DrawImageGrid(Transform transform, float distance, float height, float width, int nRowMax, Color color)
         {
@@ -214,7 +231,6 @@ namespace NeRF
                     if (Physics.Raycast(rays[i, j].origin, rays[i, j].direction, out raycastHit, maxDistance, objLayerMask))
                     {
                         Color rawColor = raycastHit.transform.gameObject.GetComponent<Renderer>().material.color;
-                        Debug.Log(i + " " + j + " " + Vector3.Dot(-lightDir, raycastHit.normal));
                         colors[i, j] = Mathf.Clamp(Vector3.Dot(-lightDir, raycastHit.normal), 0, 1) * rawColor;
                     }
                     else

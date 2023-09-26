@@ -1,8 +1,10 @@
 # NeRF Visualization using Unity
 There are so many NeRF implementations, yet, the way ray projects from the camera unto the scene is not really well explained. 
-This project aims visualize exactly how the ray projection from camera to the image plane, the effect of focal length, sensor size of the camera, etc.
+This project aims to visualize exactly how the ray projection from camera to the image plane, the effect of focal length, sensor size of the camera, etc.
 
 Implemented using Unity 2022.3.0f1 LTS.
+
+[![YouTube Video](https://img.youtube.com/vi/YfqXaTPb_7A/0.jpg)](https://www.youtube.com/watch?v=YfqXaTPb_7A)
 
 ## Camera Fundamentals
 The camera in this project models the pinhole camera as shown below:
@@ -16,8 +18,8 @@ The camera in this project models the pinhole camera as shown below:
 - `Show Grid` shows the grid on the image plane.
 - `Show Rays` shows the rays projected from the camera to the image plane.
 - `Ray Config`,
-    - Type `Scene` will project the rays from the camera until it intersects with the scene.
-    - Type `Image` will project the rays from the camera until it intersects with the image plane.
+    - Type `Scene` will project the rays from the camera until they intersect with the scene.
+    - Type `Image` will project the rays from the camera until they intersect with the image plane.
 - `Iterator Type`,
     - `Single` will show only one ray.
     - `Accumulate` will show all the rays up to the current ray.
